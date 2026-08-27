@@ -29,10 +29,26 @@ const BOARD_DATA_TTL_MS = 60 * 1000; // 1 minute
 const DELIVERED_DATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 let boardDataCache = { timestamp: 0, data: null };
+let boardDataInFlight = null; // dedupes concurrent fetches into a single Trello scan
 const deliveredDateCache = new Map(); // cardId -> { date: 'YYYY-MM-DD', timestamp }
 
 function toDateKey(isoString) {
   return new Date(isoString).toISOString().slice(0, 10);
+}
+
+// Runs async `fn` over `items` with at most `limit` in flight at once, so a
+// burst of card/board lookups can't blow past Trello's rate limit.
+async function mapWithConcurrency(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 // Resolves which boards to read: every open board in the configured
@@ -75,58 +91,74 @@ async function fetchBoardData() {
     return boardDataCache.data;
   }
 
-  const boards = await resolveBoards();
-
-  const members = new Map(); // id -> { id, fullName, username, avatarUrl }
-  const lists = new Map(); // id -> { id, name, boardId, isDone }
-  const cards = [];
-
-  for (const { id: boardId, name: boardName } of boards) {
-    const [boardMembers, boardLists, boardCards] = await Promise.all([
-      trello.getBoardMembers(boardId),
-      trello.getBoardLists(boardId),
-      trello.getBoardCards(boardId),
-    ]);
-
-    for (const m of boardMembers) {
-      if (!members.has(m.id)) {
-        members.set(m.id, {
-          id: m.id,
-          fullName: m.fullName || m.username,
-          username: m.username,
-          avatarUrl: m.avatarUrl || null,
-        });
-      }
-    }
-
-    for (const l of boardLists) {
-      lists.set(l.id, {
-        id: l.id,
-        name: l.name,
-        boardId,
-        isDone: isDoneListName(l.name),
-      });
-    }
-
-    for (const c of boardCards) {
-      cards.push({
-        id: c.id,
-        name: c.name,
-        due: c.due,
-        dueComplete: c.dueComplete,
-        idList: c.idList,
-        idMembers: c.idMembers || [],
-        dateLastActivity: c.dateLastActivity,
-        url: c.shortUrl,
-        boardId,
-        boardName,
-      });
-    }
+  // The dashboard fires several API calls in parallel (members, delivered,
+  // history, upcoming). Without this, each one would race in here before
+  // the cache is populated and independently re-scan every board, multiplying
+  // Trello API calls and tripping its rate limit. Share one in-flight scan.
+  if (boardDataInFlight) {
+    return boardDataInFlight;
   }
 
-  const data = { members, lists, cards };
-  boardDataCache = { timestamp: now, data };
-  return data;
+  boardDataInFlight = (async () => {
+    try {
+      const boards = await resolveBoards();
+
+      const members = new Map(); // id -> { id, fullName, username, avatarUrl }
+      const lists = new Map(); // id -> { id, name, boardId, isDone }
+      const cards = [];
+
+      for (const { id: boardId, name: boardName } of boards) {
+        const [boardMembers, boardLists, boardCards] = await Promise.all([
+          trello.getBoardMembers(boardId),
+          trello.getBoardLists(boardId),
+          trello.getBoardCards(boardId),
+        ]);
+
+        for (const m of boardMembers) {
+          if (!members.has(m.id)) {
+            members.set(m.id, {
+              id: m.id,
+              fullName: m.fullName || m.username,
+              username: m.username,
+              avatarUrl: m.avatarUrl || null,
+            });
+          }
+        }
+
+        for (const l of boardLists) {
+          lists.set(l.id, {
+            id: l.id,
+            name: l.name,
+            boardId,
+            isDone: isDoneListName(l.name),
+          });
+        }
+
+        for (const c of boardCards) {
+          cards.push({
+            id: c.id,
+            name: c.name,
+            due: c.due,
+            dueComplete: c.dueComplete,
+            idList: c.idList,
+            idMembers: c.idMembers || [],
+            dateLastActivity: c.dateLastActivity,
+            url: c.shortUrl,
+            boardId,
+            boardName,
+          });
+        }
+      }
+
+      const data = { members, lists, cards };
+      boardDataCache = { timestamp: Date.now(), data };
+      return data;
+    } finally {
+      boardDataInFlight = null;
+    }
+  })();
+
+  return boardDataInFlight;
 }
 
 // Determines the date a card most recently landed in a "done" list, using
@@ -201,12 +233,10 @@ async function getDelivered(dateKey) {
     return list && list.isDone;
   });
 
-  const withDates = await Promise.all(
-    doneCards.map(async (c) => ({
-      card: c,
-      deliveredOn: await getDeliveredDate(c, c.idList),
-    }))
-  );
+  const withDates = await mapWithConcurrency(doneCards, 6, async (c) => ({
+    card: c,
+    deliveredOn: await getDeliveredDate(c, c.idList),
+  }));
 
   const matching = withDates.filter((x) => x.deliveredOn === targetDate);
 
@@ -239,12 +269,10 @@ async function getHistory() {
     return new Date(c.dateLastActivity).getTime() >= cutoff;
   });
 
-  const withDates = await Promise.all(
-    doneCards.map(async (c) => ({
-      card: c,
-      deliveredOn: await getDeliveredDate(c, c.idList),
-    }))
-  );
+  const withDates = await mapWithConcurrency(doneCards, 6, async (c) => ({
+    card: c,
+    deliveredOn: await getDeliveredDate(c, c.idList),
+  }));
 
   withDates.sort((a, b) => (a.deliveredOn < b.deliveredOn ? 1 : -1));
 
