@@ -1,10 +1,12 @@
 # FyreFlow
 
-Plataforma pequena para acompanhar as atividades da equipe usando a API do Trello:
+Dashboard em black mode para acompanhar as atividades da equipe usando a API do Trello. Uma barra no topo mostra a foto de cada pessoa (com o número de entregas do dia); ao clicar em alguém, o painel mostra:
 
-- **Entregues no dia**: atividades movidas para uma lista de "concluído" em uma data específica, agrupadas por pessoa.
-- **Todas as atividades**: tudo o que está atribuído a cada pessoa no(s) board(s), independente do status.
-- **Atrasadas**: atividades com prazo vencido (e ainda não concluídas), agrupadas por pessoa.
+- **Entregues hoje**: atividades movidas para uma lista de "concluído" no dia de hoje.
+- **Histórico**: entregas recentes da pessoa, agrupadas por dia.
+- **Próximas a vencer**: atividades com prazo definido ainda não concluídas, ordenadas pelas mais urgentes primeiro (atrasadas aparecem destacadas em vermelho no topo).
+
+Toda atividade é clicável e abre o cartão correspondente direto no Trello, em uma nova aba.
 
 ## Como funciona
 
@@ -31,6 +33,7 @@ Não há build step — é HTML/CSS/JS puro servido pelo próprio Express.
    - `TRELLO_WORKSPACE_IDS`: nome (ou ID) da(s) Workspace(s) do Trello a monitorar. A plataforma busca automaticamente **todos os boards abertos** dessa Workspace — inclusive boards de clientes criados depois. O nome aparece na URL: `trello.com/w/<NOME>/...`. Separe múltiplas Workspaces por vírgula.
    - `TRELLO_BOARD_IDS` (opcional): IDs de boards específicos a incluir, além dos que já vêm da Workspace (útil se algum board estiver fora da Workspace principal). O ID aparece na URL do board: `trello.com/b/<ID>/nome-do-board`.
    - `DONE_LIST_KEYWORDS` (opcional): personalize quais nomes de lista contam como "entregue". Por padrão: `concluído, concluido, done, feito, entregue, finalizado, pronto` — qualquer lista cujo nome contenha uma dessas palavras é tratada como lista de conclusão.
+   - `HISTORY_LOOKBACK_DAYS` (opcional): quantos dias de histórico de entregas exibir por pessoa. Padrão: `60`.
 
    É preciso preencher `TRELLO_WORKSPACE_IDS` e/ou `TRELLO_BOARD_IDS` — ao menos um dos dois.
 
@@ -50,8 +53,8 @@ O Trello não expõe diretamente "quando o cartão foi movido para tal lista" no
 
 - `GET /api/members` — lista de membros do(s) board(s).
 - `GET /api/activities/delivered?date=YYYY-MM-DD` — atividades entregues no dia informado (padrão: hoje), por pessoa.
-- `GET /api/activities/all` — todas as atividades abertas, por pessoa.
-- `GET /api/activities/overdue` — atividades com prazo vencido e não concluídas, por pessoa.
+- `GET /api/activities/history` — histórico de entregas dos últimos `HISTORY_LOOKBACK_DAYS` dias, por pessoa, mais recentes primeiro.
+- `GET /api/activities/upcoming` — atividades com prazo definido e ainda não concluídas, por pessoa, ordenadas pela data mais próxima (atrasadas primeiro).
 
 ## Notas
 
@@ -72,6 +75,7 @@ O repositório já inclui um `render.yaml`, então o deploy é praticamente auto
    - `TRELLO_WORKSPACE_IDS` (nome da Workspace, para trazer todos os boards de clientes automaticamente)
    - `TRELLO_BOARD_IDS` (opcional, boards extras fora da Workspace)
    - `DONE_LIST_KEYWORDS` (opcional)
+   - `HISTORY_LOOKBACK_DAYS` (opcional)
 6. Clique em **Deploy**. Em poucos minutos o Render te dá uma URL pública tipo `https://fyreflow.onrender.com` — é essa URL que você acessa no navegador (inclusive no celular).
 
 No plano gratuito, o serviço "dorme" depois de um tempo sem acesso e demora ~30s para acordar na primeira requisição seguinte — normal, não é erro.

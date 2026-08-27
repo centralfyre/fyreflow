@@ -9,38 +9,16 @@
 <body>
   <header class="topbar">
     <img class="logo" src="/Fyre%20-%20Logo%20Horizontal%20-%20Laranja%20e%20Branco%20-%20Laranja%20e%20Branco.svg" alt="Fyre" />
-    <h1>FyreFlow — Atividades da Equipe</h1>
+    <h1>FyreFlow</h1>
+    <button id="refresh-btn" class="refresh-btn" title="Atualizar dados">↻</button>
   </header>
 
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="delivered">Entregues no dia</button>
-    <button class="tab-btn" data-tab="all">Todas as atividades</button>
-    <button class="tab-btn" data-tab="overdue">Atrasadas</button>
+  <nav id="member-bar" class="member-bar">
+    <p class="member-bar-loading">Carregando equipe…</p>
   </nav>
 
-  <main>
-    <section id="tab-delivered" class="tab-panel active">
-      <div class="panel-controls">
-        <label for="delivered-date">Dia:</label>
-        <input type="date" id="delivered-date" />
-        <button id="delivered-refresh">Atualizar</button>
-      </div>
-      <div id="delivered-content" class="member-grid"></div>
-    </section>
-
-    <section id="tab-all" class="tab-panel">
-      <div class="panel-controls">
-        <button id="all-refresh">Atualizar</button>
-      </div>
-      <div id="all-content" class="member-grid"></div>
-    </section>
-
-    <section id="tab-overdue" class="tab-panel">
-      <div class="panel-controls">
-        <button id="overdue-refresh">Atualizar</button>
-      </div>
-      <div id="overdue-content" class="member-grid"></div>
-    </section>
+  <main id="member-panel" class="member-panel">
+    <p class="empty-state panel-placeholder">Selecione uma pessoa acima para ver as atividades.</p>
   </main>
 
   <div id="status-banner" class="status-banner hidden"></div>

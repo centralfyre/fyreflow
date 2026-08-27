@@ -34,18 +34,18 @@ app.get("/api/activities/delivered", async (req, res) => {
   }
 });
 
-app.get("/api/activities/all", async (req, res) => {
+app.get("/api/activities/history", async (req, res) => {
   try {
-    const result = await aggregate.getAllActivities();
+    const result = await aggregate.getHistory();
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/api/activities/overdue", async (req, res) => {
+app.get("/api/activities/upcoming", async (req, res) => {
   try {
-    const result = await aggregate.getOverdue();
+    const result = await aggregate.getUpcoming();
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

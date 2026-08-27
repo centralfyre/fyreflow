@@ -16,3 +16,5 @@ services:
         sync: false
       - key: DONE_LIST_KEYWORDS
         sync: false
+      - key: HISTORY_LOOKBACK_DAYS
+        sync: false

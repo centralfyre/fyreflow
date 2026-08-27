@@ -174,7 +174,7 @@ function memberSummary(member) {
   };
 }
 
-function cardSummary(card, list) {
+function cardSummary(card, list, extra = {}) {
   return {
     id: card.id,
     name: card.name,
@@ -183,6 +183,7 @@ function cardSummary(card, list) {
     listName: list ? list.name : null,
     boardName: card.boardName,
     url: card.url,
+    ...extra,
   };
 }
 
@@ -219,34 +220,63 @@ async function getDelivered(dateKey) {
   return { date: targetDate, byMember };
 }
 
-async function getAllActivities() {
+function getHistoryLookbackDays() {
+  const raw = Number(process.env.HISTORY_LOOKBACK_DAYS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 60;
+}
+
+// Full delivery history per member: every card sitting in a "done" list
+// whose last activity falls within the lookback window, with the date it
+// entered that list. Older done cards are skipped (not just their action
+// lookup, entirely) to keep this bounded on boards with lots of history.
+async function getHistory() {
   const { members, lists, cards } = await fetchBoardData();
+  const cutoff = Date.now() - getHistoryLookbackDays() * 24 * 60 * 60 * 1000;
+
+  const doneCards = cards.filter((c) => {
+    const list = lists.get(c.idList);
+    if (!list || !list.isDone) return false;
+    return new Date(c.dateLastActivity).getTime() >= cutoff;
+  });
+
+  const withDates = await Promise.all(
+    doneCards.map(async (c) => ({
+      card: c,
+      deliveredOn: await getDeliveredDate(c, c.idList),
+    }))
+  );
+
+  withDates.sort((a, b) => (a.deliveredOn < b.deliveredOn ? 1 : -1));
 
   const byMember = Array.from(members.values()).map((member) => {
-    const activities = cards
-      .filter((c) => c.idMembers.includes(member.id))
-      .map((c) => cardSummary(c, lists.get(c.idList)));
+    const activities = withDates
+      .filter((x) => x.card.idMembers.includes(member.id))
+      .map((x) => cardSummary(x.card, lists.get(x.card.idList), { deliveredOn: x.deliveredOn }));
     return { member: memberSummary(member), activities };
   });
 
-  return { byMember };
+  return { byMember, lookbackDays: getHistoryLookbackDays() };
 }
 
-async function getOverdue() {
+// Cards with a due date that aren't in a "done" list yet, soonest due
+// first. Overdue cards (due in the past) naturally sort to the top.
+async function getUpcoming() {
   const { members, lists, cards } = await fetchBoardData();
   const now = new Date();
 
-  const overdueCards = cards.filter((c) => {
+  const upcomingCards = cards.filter((c) => {
     const list = lists.get(c.idList);
     if (list && list.isDone) return false;
     if (!c.due || c.dueComplete) return false;
-    return new Date(c.due) < now;
+    return true;
   });
 
+  upcomingCards.sort((a, b) => new Date(a.due) - new Date(b.due));
+
   const byMember = Array.from(members.values()).map((member) => {
-    const activities = overdueCards
+    const activities = upcomingCards
       .filter((c) => c.idMembers.includes(member.id))
-      .map((c) => cardSummary(c, lists.get(c.idList)));
+      .map((c) => cardSummary(c, lists.get(c.idList), { overdue: new Date(c.due) < now }));
     return { member: memberSummary(member), activities };
   });
 
@@ -256,6 +286,6 @@ async function getOverdue() {
 module.exports = {
   getMembers,
   getDelivered,
-  getAllActivities,
-  getOverdue,
+  getHistory,
+  getUpcoming,
 };
