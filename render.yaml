@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: fyreflow
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: TRELLO_KEY
+        sync: false
+      - key: TRELLO_TOKEN
+        sync: false
+      - key: TRELLO_BOARD_IDS
+        sync: false
+      - key: DONE_LIST_KEYWORDS
+        sync: false
