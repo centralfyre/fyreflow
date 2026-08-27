@@ -50,6 +50,13 @@ function renderActivityItem(activity) {
   const meta = document.createElement("div");
   meta.className = "activity-meta";
 
+  if (activity.boardName) {
+    const boardBadge = document.createElement("span");
+    boardBadge.className = "badge board";
+    boardBadge.textContent = activity.boardName;
+    meta.appendChild(boardBadge);
+  }
+
   if (activity.listName) {
     const listBadge = document.createElement("span");
     listBadge.className = "badge";

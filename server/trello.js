@@ -11,18 +11,20 @@ function getCredentials() {
   return { key, token };
 }
 
-function getBoardIds() {
+function getExplicitBoardIds() {
   const raw = process.env.TRELLO_BOARD_IDS || "";
-  const ids = raw
+  return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (ids.length === 0) {
-    throw new Error(
-      "TRELLO_BOARD_IDS precisa ter ao menos um board ID (separe múltiplos por vírgula)."
-    );
-  }
-  return ids;
+}
+
+function getWorkspaceIds() {
+  const raw = process.env.TRELLO_WORKSPACE_IDS || process.env.TRELLO_WORKSPACE_ID || "";
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 async function trelloFetch(path, params = {}) {
@@ -75,11 +77,22 @@ function getBoard(boardId) {
   return trelloFetch(`/boards/${boardId}`, { fields: "name" });
 }
 
+// idOrgOrName: a Workspace's ID or its short name (the slug that appears in
+// the Workspace URL, e.g. "fyredesignclientes" in trello.com/w/fyredesignclientes/...).
+function getWorkspaceBoards(idOrgOrName) {
+  return trelloFetch(`/organizations/${idOrgOrName}/boards`, {
+    fields: "name",
+    filter: "open",
+  });
+}
+
 module.exports = {
-  getBoardIds,
+  getExplicitBoardIds,
+  getWorkspaceIds,
   getBoardMembers,
   getBoardLists,
   getBoardCards,
   getCardMoveActions,
   getBoard,
+  getWorkspaceBoards,
 };

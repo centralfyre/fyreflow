@@ -28,8 +28,11 @@ Não há build step — é HTML/CSS/JS puro servido pelo próprio Express.
 
 3. Preencha o `.env`:
    - `TRELLO_KEY` e `TRELLO_TOKEN`: gere em https://trello.com/app-key (a key fica na página; o token é gerado a partir do link "Token" na mesma página, autorizando acesso de leitura).
-   - `TRELLO_BOARD_IDS`: ID do(s) board(s) da equipe (separados por vírgula se forem vários). O ID aparece na URL do board: `trello.com/b/<ID>/nome-do-board`.
+   - `TRELLO_WORKSPACE_IDS`: nome (ou ID) da(s) Workspace(s) do Trello a monitorar. A plataforma busca automaticamente **todos os boards abertos** dessa Workspace — inclusive boards de clientes criados depois. O nome aparece na URL: `trello.com/w/<NOME>/...`. Separe múltiplas Workspaces por vírgula.
+   - `TRELLO_BOARD_IDS` (opcional): IDs de boards específicos a incluir, além dos que já vêm da Workspace (útil se algum board estiver fora da Workspace principal). O ID aparece na URL do board: `trello.com/b/<ID>/nome-do-board`.
    - `DONE_LIST_KEYWORDS` (opcional): personalize quais nomes de lista contam como "entregue". Por padrão: `concluído, concluido, done, feito, entregue, finalizado, pronto` — qualquer lista cujo nome contenha uma dessas palavras é tratada como lista de conclusão.
+
+   É preciso preencher `TRELLO_WORKSPACE_IDS` e/ou `TRELLO_BOARD_IDS` — ao menos um dos dois.
 
 4. Rode o servidor:
 
@@ -66,7 +69,8 @@ O repositório já inclui um `render.yaml`, então o deploy é praticamente auto
 5. Antes (ou logo depois) do primeiro deploy, preencha as variáveis de ambiente pedidas no painel do serviço, em **Environment**:
    - `TRELLO_KEY`
    - `TRELLO_TOKEN`
-   - `TRELLO_BOARD_IDS`
+   - `TRELLO_WORKSPACE_IDS` (nome da Workspace, para trazer todos os boards de clientes automaticamente)
+   - `TRELLO_BOARD_IDS` (opcional, boards extras fora da Workspace)
    - `DONE_LIST_KEYWORDS` (opcional)
 6. Clique em **Deploy**. Em poucos minutos o Render te dá uma URL pública tipo `https://fyreflow.onrender.com` — é essa URL que você acessa no navegador (inclusive no celular).
 

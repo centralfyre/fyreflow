@@ -57,5 +57,5 @@ app.get("/api/health", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Fyre Performance rodando em http://localhost:${PORT}`);
+  console.log(`FyreFlow rodando em http://localhost:${PORT}`);
 });

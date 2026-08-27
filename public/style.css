@@ -208,6 +208,12 @@ main {
   color: var(--danger);
 }
 
+.badge.board {
+  background: rgba(255, 87, 2, 0.15);
+  color: var(--fyre-orange);
+  font-weight: 600;
+}
+
 .empty-state {
   color: var(--text-muted);
   font-size: 0.85rem;

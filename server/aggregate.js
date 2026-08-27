@@ -35,19 +35,53 @@ function toDateKey(isoString) {
   return new Date(isoString).toISOString().slice(0, 10);
 }
 
+// Resolves which boards to read: every open board in the configured
+// Workspace(s) (TRELLO_WORKSPACE_IDS), plus any explicitly listed board IDs
+// (TRELLO_BOARD_IDS). This lets the platform automatically pick up new
+// client boards as they're created, instead of needing a manual env var
+// update per board.
+async function resolveBoards() {
+  const workspaceIds = trello.getWorkspaceIds();
+  const explicitIds = trello.getExplicitBoardIds();
+
+  const boards = new Map(); // id -> { id, name }
+
+  for (const workspaceId of workspaceIds) {
+    const workspaceBoards = await trello.getWorkspaceBoards(workspaceId);
+    for (const b of workspaceBoards) {
+      boards.set(b.id, { id: b.id, name: b.name });
+    }
+  }
+
+  for (const boardId of explicitIds) {
+    if (!boards.has(boardId)) {
+      const board = await trello.getBoard(boardId);
+      boards.set(boardId, { id: board.id, name: board.name });
+    }
+  }
+
+  if (boards.size === 0) {
+    throw new Error(
+      "Configure TRELLO_WORKSPACE_IDS (para ler todos os boards de uma ou mais Workspaces) e/ou TRELLO_BOARD_IDS (boards específicos)."
+    );
+  }
+
+  return Array.from(boards.values());
+}
+
 async function fetchBoardData() {
   const now = Date.now();
   if (boardDataCache.data && now - boardDataCache.timestamp < BOARD_DATA_TTL_MS) {
     return boardDataCache.data;
   }
 
-  const boardIds = trello.getBoardIds();
+  const boards = await resolveBoards();
 
   const members = new Map(); // id -> { id, fullName, username, avatarUrl }
   const lists = new Map(); // id -> { id, name, boardId, isDone }
   const cards = [];
 
-  for (const boardId of boardIds) {
+  for (const { id: boardId, name: boardName } of boards) {
     const [boardMembers, boardLists, boardCards] = await Promise.all([
       trello.getBoardMembers(boardId),
       trello.getBoardLists(boardId),
@@ -85,6 +119,7 @@ async function fetchBoardData() {
         dateLastActivity: c.dateLastActivity,
         url: c.shortUrl,
         boardId,
+        boardName,
       });
     }
   }
@@ -146,6 +181,7 @@ function cardSummary(card, list) {
     due: card.due,
     dueComplete: card.dueComplete,
     listName: list ? list.name : null,
+    boardName: card.boardName,
     url: card.url,
   };
 }

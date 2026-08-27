@@ -10,6 +10,8 @@ services:
         sync: false
       - key: TRELLO_TOKEN
         sync: false
+      - key: TRELLO_WORKSPACE_IDS
+        sync: false
       - key: TRELLO_BOARD_IDS
         sync: false
       - key: DONE_LIST_KEYWORDS
